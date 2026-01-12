@@ -33,7 +33,7 @@ CONF_ALT_SERVICES = "alt_services"
 CONF_TYPE = "type"
 
 # --- Defaults ---
-DEFAULT_NAME = "Hal9000"
+DEFAULT_NAME = ""
 DEFAULT_DATE_FORMAT = "%H:%M:%S"
 DEFAULT_INCLUDE_TIME = True
 DEFAULT_BOLD_PREFIX = True
