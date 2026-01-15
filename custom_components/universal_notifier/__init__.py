@@ -16,6 +16,7 @@ from .const import (
     # Config keys
     CONF_CHANNELS, CONF_ASSISTANT_NAME, CONF_DATE_FORMAT,
     CONF_GREETINGS, CONF_TIME_SLOTS, CONF_DND, CONF_BOLD_PREFIX,
+    CONF_STORE_NOTIFICATIONS, CONF_MAX_STORED_NOTIFICATIONS,
     # Service keys (Inputs)
     CONF_MESSAGE, CONF_TITLE, CONF_TARGETS, CONF_DATA, CONF_TARGET_DATA,
     CONF_PRIORITY, CONF_SKIP_GREETING, CONF_INCLUDE_TIME, CONF_OVERRIDE_GREETINGS,
@@ -25,8 +26,10 @@ from .const import (
     # Defaults
     DEFAULT_NAME, DEFAULT_DATE_FORMAT, DEFAULT_INCLUDE_TIME,
     DEFAULT_GREETINGS, DEFAULT_TIME_SLOTS, DEFAULT_DND, 
-    DEFAULT_BOLD_PREFIX, PRIORITY_VOLUME, COMPANION_COMMANDS
+    DEFAULT_BOLD_PREFIX, PRIORITY_VOLUME, COMPANION_COMMANDS,
+    DEFAULT_STORE_NOTIFICATIONS, DEFAULT_MAX_STORED_NOTIFICATIONS
 )
+from .store import NotificationStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -133,6 +136,10 @@ CONFIG_SCHEMA = vol.Schema({
         vol.Optional(CONF_DATE_FORMAT, default=DEFAULT_DATE_FORMAT): cv.string,
         vol.Optional(CONF_INCLUDE_TIME, default=DEFAULT_INCLUDE_TIME): cv.boolean,
         vol.Optional(CONF_BOLD_PREFIX, default=DEFAULT_BOLD_PREFIX): cv.boolean,
+        vol.Optional(CONF_STORE_NOTIFICATIONS, default=DEFAULT_STORE_NOTIFICATIONS): cv.boolean,
+        vol.Optional(CONF_MAX_STORED_NOTIFICATIONS, default=DEFAULT_MAX_STORED_NOTIFICATIONS): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=1000)
+        ),
         # Validazione dizionario slot orari
         vol.Optional(CONF_TIME_SLOTS, default=DEFAULT_TIME_SLOTS): vol.Schema({
             cv.string: TIME_SLOT_SCHEMA
@@ -181,6 +188,27 @@ async def async_setup(hass: HomeAssistant, config: dict):
     time_slots_conf = conf.get(CONF_TIME_SLOTS, DEFAULT_TIME_SLOTS)
     dnd_conf = conf.get(CONF_DND, DEFAULT_DND)
     base_greetings = conf.get(CONF_GREETINGS, DEFAULT_GREETINGS)
+    
+    # Initialize notification store
+    store_enabled = conf.get(CONF_STORE_NOTIFICATIONS, DEFAULT_STORE_NOTIFICATIONS)
+    max_notifications = conf.get(CONF_MAX_STORED_NOTIFICATIONS, DEFAULT_MAX_STORED_NOTIFICATIONS)
+    
+    notification_store = None
+    if store_enabled:
+        notification_store = NotificationStore(hass, max_notifications)
+        await notification_store.async_load()
+        
+        # Store the notification store in hass.data for sensor access
+        if DOMAIN not in hass.data:
+            hass.data[DOMAIN] = {}
+        hass.data[DOMAIN]["store"] = notification_store
+        
+        # Set up sensor platform
+        hass.async_create_task(
+            hass.helpers.discovery.async_load_platform(
+                "sensor", DOMAIN, {}, config
+            )
+        )
 
     async def async_send_notification(call: ServiceCall):
         """Handler principale del servizio 'send'."""
@@ -449,9 +477,52 @@ async def async_setup(hass: HomeAssistant, config: dict):
         # Esecuzione parallela di tutti i task (volumi e notifiche)
         if tasks:
             await asyncio.gather(*tasks)
+        
+        # Store notification if enabled
+        if notification_store:
+            await notification_store.async_add_notification(
+                message=global_raw_message,
+                targets=targets,
+                title=global_title,
+                priority=is_priority,
+                skip_greeting=skip_greeting,
+                include_time=include_time,
+                assistant_name=override_name,
+            )
 
     hass.services.async_register(
         DOMAIN, "send", async_send_notification, schema=SEND_SERVICE_SCHEMA
     )
+    
+    # Register additional services for notification history
+    if notification_store:
+        async def async_get_history(call: ServiceCall):
+            """Get notification history."""
+            limit = call.data.get("limit", 50)
+            notifications = await notification_store.async_get_notifications(limit)
+            _LOGGER.info(f"Retrieved {len(notifications)} notifications from history")
+            # Fire an event with the notification history
+            hass.bus.async_fire(
+                f"{DOMAIN}_history",
+                {"notifications": notifications, "count": len(notifications)}
+            )
+        
+        async def async_clear_history(call: ServiceCall):
+            """Clear notification history."""
+            await notification_store.async_clear_notifications()
+            _LOGGER.info("Notification history cleared")
+        
+        GET_HISTORY_SCHEMA = vol.Schema({
+            vol.Optional("limit", default=50): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=1000)
+            ),
+        })
+        
+        hass.services.async_register(
+            DOMAIN, "get_history", async_get_history, schema=GET_HISTORY_SCHEMA
+        )
+        hass.services.async_register(
+            DOMAIN, "clear_history", async_clear_history
+        )
     
     return True

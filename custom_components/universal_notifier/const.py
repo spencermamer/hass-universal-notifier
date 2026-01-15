@@ -9,6 +9,8 @@ CONF_DATE_FORMAT = "date_format"
 CONF_GREETINGS = "greetings"
 CONF_TIME_SLOTS = "time_slots"
 CONF_DND = "dnd"
+CONF_STORE_NOTIFICATIONS = "store_notifications"
+CONF_MAX_STORED_NOTIFICATIONS = "max_stored_notifications"
 
 # --- Chiavi Parametri Servizio (Service Call) ---
 # Usiamo queste costanti sia nello schema che nel codice
@@ -37,6 +39,8 @@ DEFAULT_NAME = ""
 DEFAULT_DATE_FORMAT = "%H:%M:%S"
 DEFAULT_INCLUDE_TIME = True
 DEFAULT_BOLD_PREFIX = True
+DEFAULT_STORE_NOTIFICATIONS = True
+DEFAULT_MAX_STORED_NOTIFICATIONS = 100
 
 # --- Default Time Slots & Volumes ---
 # Definisce quando inizia la fascia e il volume (0.0 - 1.0) di default per quella fascia
