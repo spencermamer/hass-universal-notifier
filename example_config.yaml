@@ -1,6 +1,4 @@
-"""Test configuration for Universal Notifier with notification store."""
-
-# This is a sample configuration to test the notification data store feature
+# Example configuration for Universal Notifier with notification store
 # Add this to your configuration.yaml
 
 universal_notifier:

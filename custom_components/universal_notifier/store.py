@@ -1,7 +1,6 @@
 """Notification data store for Universal Notifier."""
 
 import logging
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from homeassistant.core import HomeAssistant
