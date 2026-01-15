@@ -23,6 +23,7 @@ wheels/
 
 # Test files
 test_*.py
+FEATURE_SUMMARY.md
 
 # IDEs
 .vscode/
