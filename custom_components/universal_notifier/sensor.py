@@ -40,6 +40,7 @@ class NotificationHistorySensor(SensorEntity):
         self._attr_unique_id = "universal_notifier_history"
         self._attr_icon = "mdi:bell-ring"
         self._recent_notifications = []
+        self._last_count = 0
 
     @property
     def native_value(self) -> int:
@@ -56,6 +57,8 @@ class NotificationHistorySensor(SensorEntity):
 
     async def async_update(self) -> None:
         """Update the sensor."""
-        # Fetch the most recent 10 notifications
-        self._recent_notifications = await self._store.async_get_notifications(10)
+        # Only fetch notifications if the count has changed
+        if self._store.count != self._last_count:
+            self._recent_notifications = await self._store.async_get_notifications(10)
+            self._last_count = self._store.count
 

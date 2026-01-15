@@ -500,7 +500,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
             """Get notification history."""
             limit = call.data.get("limit", 50)
             notifications = await notification_store.async_get_notifications(limit)
-            _LOGGER.info(f"Retrieved {len(notifications)} notifications from history")
+            _LOGGER.info("Retrieved %s notifications from history", len(notifications))
             # Fire an event with the notification history
             hass.bus.async_fire(
                 f"{DOMAIN}_history",

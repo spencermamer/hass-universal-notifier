@@ -72,7 +72,18 @@ class NotificationStore:
             targets: List of target channels
             title: Optional notification title
             priority: Whether this is a priority notification
-            **kwargs: Additional notification data
+            **kwargs: Additional notification data (e.g., skip_greeting, include_time, assistant_name)
+            
+        Note:
+            The notification is stored with the following structure:
+            {
+                "timestamp": ISO 8601 timestamp string,
+                "message": str,
+                "targets": List[str],
+                "title": Optional[str],
+                "priority": bool,
+                **kwargs: Any additional fields passed to the function
+            }
         """
         if not self._loaded:
             await self.async_load()
@@ -85,7 +96,8 @@ class NotificationStore:
             "priority": priority,
         }
         
-        # Add any additional data
+        # Add any additional data (skip_greeting, include_time, assistant_name, etc.)
+        # Only add kwargs that are not already in the notification to avoid overwrites
         for key, value in kwargs.items():
             if key not in notification:
                 notification[key] = value
