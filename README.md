@@ -26,6 +26,7 @@ Trasforma semplici automazioni in un sistema di comunicazione "Smart Home" che c
 * **Do Not Disturb (DND):** Definisci un orario di silenzio per gli assistenti vocali. Le notifiche critiche (`priority: true`) passano comunque.
 * **Saluti Casuali:** "Buongiorno", "Buon pomeriggio", ecc., scelti casualmente da liste personalizzabili.
 * **Gestione Comandi:** Supporto nativo per comandi Companion App (es. `TTS`, `command_volume_level`) inviati in modalità "RAW".
+* **Cronologia Notifiche:** Memorizza automaticamente lo storico delle notifiche inviate con persistenza tra i riavvii.
 
 ___
 
@@ -42,6 +43,7 @@ It transforms simple automations into a "Smart Home" communication system that k
 * **Do Not Disturb (DND):** Define quiet hours for voice assistants. Critical notifications (`priority: true`) will still go through.
 * **Random Greetings:** "Good morning," "Good afternoon," etc., chosen randomly from customizable lists.
 * **Command Handling:** Native support for Companion App commands (e.g., `TTS`, `command_volume_level`) sent in "RAW" mode.
+* **Notification History:** Automatically stores the history of sent notifications with persistence across reboots.
 
 ___
 
@@ -287,6 +289,95 @@ data:
     gh_kitchen:
       volume: 0.5
 ```
+
+</details>
+
+## 📊 Notification History
+
+<details>
+  <summary>Click me</summary>
+
+Universal Notifier can automatically store a history of all sent notifications. This feature is **enabled by default** and persists data across Home Assistant restarts.
+
+### Configuration
+
+Add these optional settings to your configuration:
+
+```yaml
+universal_notifier:
+  # Enable or disable notification history storage (default: true)
+  store_notifications: true
+  
+  # Maximum number of notifications to store (default: 100, max: 1000)
+  max_stored_notifications: 100
+  
+  # ... rest of your configuration
+```
+
+### Sensor
+
+When notification storage is enabled, a sensor entity is automatically created:
+
+- **Entity:** `sensor.universal_notifier_history`
+- **State:** Number of stored notifications
+- **Attributes:**
+  - `total_count`: Total number of stored notifications
+  - `recent_notifications`: List of the 10 most recent notifications with all their details (timestamp, message, title, targets, priority, etc.)
+
+You can display this in your dashboard using an entity card or create custom cards to visualize the notification history.
+
+### Services
+
+#### `universal_notifier.get_history`
+
+Retrieves notification history and fires an event with the results.
+
+**Parameters:**
+- `limit` (optional): Maximum number of notifications to retrieve (default: 50, max: 1000)
+
+**Example:**
+
+```yaml
+action: universal_notifier.get_history
+data:
+  limit: 100
+```
+
+This service fires a `universal_notifier_history` event that can be captured by automations. The event data contains:
+- `notifications`: Array of notification objects
+- `count`: Number of notifications returned
+
+**Automation Example:**
+
+```yaml
+automation:
+  - alias: "Log Notification History"
+    trigger:
+      - platform: event
+        event_type: universal_notifier_history
+    action:
+      - service: logbook.log
+        data:
+          name: "Notification History"
+          message: "Retrieved {{ trigger.event.data.count }} notifications"
+```
+
+#### `universal_notifier.clear_history`
+
+Clears all stored notification history.
+
+**Example:**
+
+```yaml
+action: universal_notifier.clear_history
+```
+
+### Use Cases
+
+- **Audit Trail:** Keep track of all notifications sent by your system
+- **Debugging:** Review what notifications were sent and when
+- **Dashboard Display:** Show recent alerts and messages on your dashboard
+- **Automation Triggers:** Create automations based on notification history patterns
 
 </details>
 

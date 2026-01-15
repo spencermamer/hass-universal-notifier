@@ -1,0 +1,27 @@
+"""Test configuration for Universal Notifier with notification store."""
+
+# This is a sample configuration to test the notification data store feature
+# Add this to your configuration.yaml
+
+universal_notifier:
+  # Enable notification storage (default: true)
+  store_notifications: true
+  
+  # Maximum number of notifications to store (default: 100)
+  max_stored_notifications: 100
+  
+  assistant_name: "Jarvis"
+  date_format: "%H:%M"
+  include_time: true
+  
+  # Channels configuration
+  channels:
+    # Example persistent notification channel for testing
+    ha_notification:
+      service: persistent_notification.create
+      is_voice: false
+    
+    # Example Telegram channel
+    # telegram_admin:
+    #   service: telegram_bot.send_message
+    #   target: 123456789
