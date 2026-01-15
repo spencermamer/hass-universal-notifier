@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict, Optional
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -40,6 +39,7 @@ class NotificationHistorySensor(SensorEntity):
         self._attr_name = "Universal Notifier History"
         self._attr_unique_id = "universal_notifier_history"
         self._attr_icon = "mdi:bell-ring"
+        self._recent_notifications = []
 
     @property
     def native_value(self) -> int:
@@ -49,17 +49,13 @@ class NotificationHistorySensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> Dict[str, Any]:
         """Return the state attributes."""
-        # Get the most recent 10 notifications for attributes
-        notifications = self._hass.loop.run_in_executor(
-            None, self._store.async_get_notifications, 10
-        )
-        
         return {
             "total_count": self._store.count,
-            "recent_notifications": self._store._notifications[:10] if self._store._notifications else [],
+            "recent_notifications": self._recent_notifications,
         }
 
     async def async_update(self) -> None:
         """Update the sensor."""
-        # The store is updated in real-time, no need to fetch
-        pass
+        # Fetch the most recent 10 notifications
+        self._recent_notifications = await self._store.async_get_notifications(10)
+
