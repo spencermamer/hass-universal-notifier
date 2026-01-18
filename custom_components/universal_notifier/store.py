@@ -72,11 +72,11 @@ class NotificationStore:
         self._save_task = self._hass.async_create_task(self._debounced_save())
 
     @staticmethod
-    def _validate_json_serializable(data: Dict[str, Any], path: str = "") -> None:
+    def _validate_json_serializable(data: Any, path: str = "") -> None:
         """Validate that data is JSON serializable using recursive type checking.
         
         Args:
-            data: Dictionary to validate
+            data: Data to validate
             path: Current path in the data structure (for error messages)
             
         Raises:
@@ -89,12 +89,12 @@ class NotificationStore:
                 if not isinstance(key, str):
                     raise ValueError(f"Dictionary keys must be strings, got {type(key).__name__} at {path}.{key}")
                 NotificationStore._validate_json_serializable(value, f"{path}.{key}" if path else key)
-        elif isinstance(data, (list, tuple)):
+        elif isinstance(data, list):
             for idx, item in enumerate(data):
                 NotificationStore._validate_json_serializable(item, f"{path}[{idx}]")
         elif not isinstance(data, allowed_types):
             raise ValueError(
-                f"Value at {path} is not JSON serializable: {type(data).__name__}. "
+                f"Value at {path or 'root'} is not JSON serializable: {type(data).__name__}. "
                 f"Only str, int, float, bool, None, list, and dict are allowed."
             )
 
