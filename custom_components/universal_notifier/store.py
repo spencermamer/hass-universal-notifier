@@ -61,14 +61,17 @@ class NotificationStore:
 
     async def _debounced_save(self) -> None:
         """Debounced save to reduce disk I/O operations."""
-        await asyncio.sleep(SAVE_DELAY)
-        await self.async_save()
-        self._save_task = None
+        try:
+            await asyncio.sleep(SAVE_DELAY)
+            await self.async_save()
+        finally:
+            self._save_task = None
 
     def _schedule_save(self) -> None:
         """Schedule a debounced save operation."""
         if self._save_task and not self._save_task.done():
             self._save_task.cancel()
+            # Don't wait for cancellation - just schedule new task
         self._save_task = self._hass.async_create_task(self._debounced_save())
 
     @staticmethod
@@ -87,8 +90,8 @@ class NotificationStore:
         if isinstance(data, dict):
             for key, value in data.items():
                 if not isinstance(key, str):
-                    raise ValueError(f"Dictionary keys must be strings, got {type(key).__name__} at {path}.{key}")
-                NotificationStore._validate_json_serializable(value, f"{path}.{key}" if path else key)
+                    raise ValueError(f"Dictionary keys must be strings, got {type(key).__name__} at {path or 'root'}")
+                NotificationStore._validate_json_serializable(value, f"{path}.{key}" if path else str(key))
         elif isinstance(data, list):
             for idx, item in enumerate(data):
                 NotificationStore._validate_json_serializable(item, f"{path}[{idx}]")

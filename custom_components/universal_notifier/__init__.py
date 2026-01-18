@@ -476,11 +476,15 @@ async def async_setup(hass: HomeAssistant, config: dict):
         if tasks:
             try:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                # Check if any tasks failed
-                for result in results:
-                    if isinstance(result, Exception):
-                        _LOGGER.warning("Notification task failed: %s", result)
+                # Check if any tasks failed and determine status
+                failed_count = sum(1 for r in results if isinstance(r, Exception))
+                if failed_count > 0:
+                    if failed_count == len(results):
+                        delivery_status = "failed"
+                        _LOGGER.error("All notification tasks failed")
+                    else:
                         delivery_status = "partial"
+                        _LOGGER.warning("%d out of %d notification tasks failed", failed_count, len(results))
             except Exception as err:
                 _LOGGER.error("Error sending notifications: %s", err)
                 delivery_status = "failed"
