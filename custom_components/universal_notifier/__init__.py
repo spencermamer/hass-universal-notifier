@@ -199,15 +199,12 @@ async def async_setup(hass: HomeAssistant, config: dict):
         await notification_store.async_load()
         
         # Store the notification store in hass.data for sensor access
-        if DOMAIN not in hass.data:
-            hass.data[DOMAIN] = {}
+        hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN]["store"] = notification_store
         
         # Set up sensor platform
-        hass.async_create_task(
-            hass.helpers.discovery.async_load_platform(
-                "sensor", DOMAIN, {}, config
-            )
+        await hass.helpers.discovery.async_load_platform(
+            "sensor", DOMAIN, {}, config
         )
 
     async def async_send_notification(call: ServiceCall):
@@ -475,8 +472,20 @@ async def async_setup(hass: HomeAssistant, config: dict):
                 tasks.append(hass.services.async_call(srv_domain, srv_name, service_payload))
 
         # Esecuzione parallela di tutti i task (volumi e notifiche)
+        delivery_status = "sent"
+        failed_targets = []
         if tasks:
-            await asyncio.gather(*tasks)
+            try:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                # Check if any tasks failed
+                for idx, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        _LOGGER.warning("Notification task failed: %s", result)
+                        delivery_status = "partial"
+                        # We don't have direct mapping to targets here, so we'll log generically
+            except Exception as err:
+                _LOGGER.error("Error sending notifications: %s", err)
+                delivery_status = "failed"
         
         # Store notification if enabled
         if notification_store:
@@ -488,6 +497,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
                 skip_greeting=skip_greeting,
                 include_time=include_time,
                 assistant_name=override_name,
+                status=delivery_status,
             )
 
     hass.services.async_register(

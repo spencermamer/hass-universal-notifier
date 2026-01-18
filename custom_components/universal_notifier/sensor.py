@@ -1,13 +1,16 @@
 """Sensor platform for Universal Notifier."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+
+if TYPE_CHECKING:
+    from .store import NotificationStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +35,7 @@ async def async_setup_platform(
 class NotificationHistorySensor(SensorEntity):
     """Sensor to display notification history."""
 
-    def __init__(self, hass: HomeAssistant, store) -> None:
+    def __init__(self, hass: HomeAssistant, store: "NotificationStore") -> None:
         """Initialize the sensor."""
         self._hass = hass
         self._store = store
@@ -40,7 +43,7 @@ class NotificationHistorySensor(SensorEntity):
         self._attr_unique_id = "universal_notifier_history"
         self._attr_icon = "mdi:bell-ring"
         self._recent_notifications = []
-        self._last_count = 0
+        self._last_count = -1  # Initialize to -1 to ensure first update fetches data
 
     @property
     def native_value(self) -> int:

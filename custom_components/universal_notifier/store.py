@@ -1,5 +1,7 @@
 """Notification data store for Universal Notifier."""
 
+import asyncio
+import json
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 STORAGE_KEY = "universal_notifier.notifications"
+SAVE_DELAY = 1.0  # Delay in seconds before saving to disk
 
 
 class NotificationStore:
@@ -28,6 +31,7 @@ class NotificationStore:
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._notifications: List[Dict[str, Any]] = []
         self._loaded = False
+        self._save_task: Optional[asyncio.Task] = None
 
     async def async_load(self) -> None:
         """Load stored notifications from disk."""
@@ -56,6 +60,33 @@ class NotificationStore:
         except Exception as err:
             _LOGGER.error("Error saving notification history: %s", err)
 
+    async def _debounced_save(self) -> None:
+        """Debounced save to reduce disk I/O operations."""
+        await asyncio.sleep(SAVE_DELAY)
+        await self.async_save()
+        self._save_task = None
+
+    def _schedule_save(self) -> None:
+        """Schedule a debounced save operation."""
+        if self._save_task and not self._save_task.done():
+            self._save_task.cancel()
+        self._save_task = self._hass.async_create_task(self._debounced_save())
+
+    @staticmethod
+    def _validate_json_serializable(data: Dict[str, Any]) -> None:
+        """Validate that data is JSON serializable.
+        
+        Args:
+            data: Dictionary to validate
+            
+        Raises:
+            ValueError: If data contains non-serializable values
+        """
+        try:
+            json.dumps(data)
+        except (TypeError, ValueError) as err:
+            raise ValueError(f"Notification data must be JSON serializable: {err}") from err
+
     async def async_add_notification(
         self,
         message: str,
@@ -72,6 +103,10 @@ class NotificationStore:
             title: Optional notification title
             priority: Whether this is a priority notification
             **kwargs: Additional notification data (e.g., skip_greeting, include_time, assistant_name)
+                     All values must be JSON serializable.
+            
+        Raises:
+            ValueError: If any kwargs contain non-JSON-serializable values
             
         Note:
             The notification is stored with the following structure:
@@ -96,10 +131,19 @@ class NotificationStore:
         }
         
         # Add any additional data (skip_greeting, include_time, assistant_name, etc.)
-        # Only add kwargs that are not already in the notification to avoid overwrites
+        # Note: Base notification fields (timestamp, message, targets, title, priority)
+        # cannot be overwritten by kwargs
+        base_fields = {"timestamp", "message", "targets", "title", "priority"}
         for key, value in kwargs.items():
-            if key not in notification:
+            if key not in base_fields:
                 notification[key] = value
+
+        # Validate that the notification is JSON serializable
+        try:
+            self._validate_json_serializable(notification)
+        except ValueError as err:
+            _LOGGER.error("Failed to add notification: %s", err)
+            raise
 
         self._notifications.insert(0, notification)
 
@@ -107,7 +151,8 @@ class NotificationStore:
         if len(self._notifications) > self._max_notifications:
             self._notifications = self._notifications[: self._max_notifications]
 
-        await self.async_save()
+        # Use debounced save to reduce disk I/O
+        self._schedule_save()
         _LOGGER.debug("Added notification to store: %s", notification)
 
     async def async_get_notifications(
@@ -136,5 +181,11 @@ class NotificationStore:
 
     @property
     def count(self) -> int:
-        """Return the number of stored notifications."""
+        """Return the number of stored notifications.
+        
+        Note:
+            This property does not trigger loading from disk. Ensure that
+            ``await async_load()`` has been called before accessing this
+            property to obtain an accurate count.
+        """
         return len(self._notifications)
