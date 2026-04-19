@@ -102,3 +102,22 @@ send:
       required: false
       selector:
         object:
+
+get_history:
+  name: Get Notification History
+  description: Retrieves the notification history. Fires an event 'universal_notifier_history' with the results.
+  
+  fields:
+    limit:
+      name: Limit
+      description: Maximum number of notifications to retrieve (default 50, max 1000).
+      required: false
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 1000
+
+clear_history:
+  name: Clear Notification History
+  description: Clears all stored notification history.
